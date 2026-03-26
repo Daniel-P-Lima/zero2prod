@@ -19,4 +19,5 @@ actix-web = "4.13.0"
 tokio = { version = "1.50.0", features = ["full"] }
 serde = { version = "1", features = ["derive"]}
 sqlx = "0.8.6"
+config = "0.15.22"
 
