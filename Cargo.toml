@@ -1,6 +1,20 @@
 [package]
 name = "zero2prod"
 version = "0.1.0"
+authors = ["Daniel Pereira Lima <limadanielpereira@gmail.com>"]
 edition = "2024"
 
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+path = "src/main.rs"
+name = "zero2prod"
+
+[dev-dependencies]
+reqwest = "0.13.2"
+
 [dependencies]
+actix-web = "4.13.0"
+tokio = { version = "1.50.0", features = ["full"] }
+
