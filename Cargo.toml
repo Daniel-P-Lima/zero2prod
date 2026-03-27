@@ -18,6 +18,17 @@ reqwest = "0.13.2"
 actix-web = "4.13.0"
 tokio = { version = "1.50.0", features = ["full"] }
 serde = { version = "1", features = ["derive"]}
-sqlx = { version = "0.8.6", features = ["postgres", "runtime-tokio-native-tls"] }
 config = "0.15.22"
+
+[dependencies.sqlx]
+version = "0.8.6"
+default-features = false
+features = [
+    "runtime-actix-rustls",
+    "macros",
+    "postgres",
+    "uuid",
+    "chrono",
+    "migrate"
+]
 
