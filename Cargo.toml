@@ -24,7 +24,7 @@ config = "0.15.22"
 version = "0.8.6"
 default-features = false
 features = [
-    "runtime-actix-rustls",
+    "runtime-tokio-native-tls",
     "macros",
     "postgres",
     "uuid",
