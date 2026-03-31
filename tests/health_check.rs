@@ -1,10 +1,11 @@
+use more_asserts::assert_gt;
+use once_cell::sync::Lazy;
 use sqlx::{Connection, PgConnection, PgPool};
 use std::net::TcpListener;
 use uuid::Uuid;
 use zero2prod::configuration::{DatabaseSettings, get_configuration};
 use zero2prod::startup::run;
 use zero2prod::telemetry::{get_subscriber, init_subscriber};
-use once_cell::sync::Lazy;
 
 static TRACING: Lazy<()> = Lazy::new(|| {
     let subscriber = get_subscriber("test".into(), "debug".into());
@@ -126,4 +127,19 @@ async fn subscribe_returns_a_400_when_data_is_missing() {
             error_message
         );
     }
+}
+
+#[tokio::test]
+async fn get_all_subscribers() {
+    let app = spawn_app().await;
+    let client = reqwest::Client::new();
+
+    let response = client
+        .get(format!("{}/subscriptions", &app.address))
+        .send()
+        .await
+        .expect("Failed to execute request.");
+
+    assert!(response.status().is_success());
+    assert_gt!(response.content_length(), Some(0));
 }
