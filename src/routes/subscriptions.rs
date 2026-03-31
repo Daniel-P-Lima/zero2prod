@@ -1,5 +1,5 @@
 use actix_web::{HttpResponse, web::Data, web::Form};
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use sqlx::PgPool;
 use tracing::Instrument;
 use uuid::Uuid;
@@ -8,6 +8,14 @@ use uuid::Uuid;
 pub struct FormData {
     name: String,
     email: String,
+}
+
+#[derive(serde::Serialize)]
+pub struct Subscriber {
+    id: Uuid,
+    email: String,
+    name: String,
+    subscribed_at: DateTime<Utc>,
 }
 
 pub async fn subscribe(form: Form<FormData>, pool: Data<PgPool>) -> HttpResponse {
@@ -42,6 +50,21 @@ pub async fn subscribe(form: Form<FormData>, pool: Data<PgPool>) -> HttpResponse
                 &request_id,
                 e
             );
+            HttpResponse::InternalServerError().finish()
+        }
+    }
+}
+
+pub async fn get_all_subscribers(pool: Data<PgPool>) -> HttpResponse {
+    match sqlx::query_as!(Subscriber, "SELECT * FROM subscriptions")
+        .fetch_all(pool.get_ref())
+        .await
+    {
+        Ok(values) => {
+            HttpResponse::Ok().json(values)
+        }
+        Err(e) => {
+            println!("Error {:?}", e);
             HttpResponse::InternalServerError().finish()
         }
     }
