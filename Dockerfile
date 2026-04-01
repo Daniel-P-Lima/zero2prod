@@ -8,13 +8,17 @@ ENV SQLX_OFFLINE=true
 RUN cargo build --release
 
 # Runtime stage
-FROM debian:bullseye-slim AS runtime
+FROM ubuntu:24.04 AS runtime
 WORKDIR /app
 # Install OpenSSL - it is dynamically linked by some of our dependencies
 # Install ca-certificates - it is needed to verify TLS certificates
 # when establishing HTTPS connections
 RUN apt-get update -y \
-    && apt-get install -y --no-install-recommends openssl ca-certificates \
+    && apt-get install -y --no-install-recommends \
+        libssl-dev \
+        openssl \
+        ca-certificates \
+        pkg-config \
     # Clean up
     && apt-get autoremove -y \
     && apt-get clean -y \
