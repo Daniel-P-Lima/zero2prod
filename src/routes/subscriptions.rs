@@ -18,6 +18,12 @@ pub struct Subscriber {
     subscribed_at: DateTime<Utc>,
 }
 
+#[derive(serde::Serialize)]
+pub struct SubscribersResponse {
+    count: usize,
+    subscribers: Vec<Subscriber>,
+}
+
 pub async fn subscribe(form: Form<FormData>, pool: Data<PgPool>) -> HttpResponse {
     let request_id = Uuid::new_v4();
     let request_span = tracing::info_span!("Adding a new subscriber",
@@ -60,7 +66,13 @@ pub async fn get_all_subscribers(pool: Data<PgPool>) -> HttpResponse {
         .fetch_all(pool.get_ref())
         .await
     {
-        Ok(values) => HttpResponse::Ok().json(values),
+        Ok(values) => {
+            let response = SubscribersResponse {
+                count: values.len(),
+                subscribers: values,
+            };
+            HttpResponse::Ok().json(response)
+        }
         Err(e) => {
             println!("Error {:?}", e);
             HttpResponse::InternalServerError().finish()
