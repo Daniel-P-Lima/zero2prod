@@ -138,7 +138,7 @@ async fn get_all_subscribers() {
         .get(format!("{}/subscriptions", &app.address))
         .send()
         .await
-        .expect("Failed to execute request.");
+        .expect("Failed to execute request. The supplied Url cannot be parsed.");
 
     assert!(response.status().is_success());
     assert_gt!(response.content_length(), Some(0));
