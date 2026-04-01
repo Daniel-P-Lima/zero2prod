@@ -60,9 +60,7 @@ pub async fn get_all_subscribers(pool: Data<PgPool>) -> HttpResponse {
         .fetch_all(pool.get_ref())
         .await
     {
-        Ok(values) => {
-            HttpResponse::Ok().json(values)
-        }
+        Ok(values) => HttpResponse::Ok().json(values),
         Err(e) => {
             println!("Error {:?}", e);
             HttpResponse::InternalServerError().finish()
