@@ -1,6 +1,6 @@
 use more_asserts::assert_gt;
 use once_cell::sync::Lazy;
-use sqlx::{Connection, PgConnection, PgPool};
+use sqlx::{Connection, Executor, PgConnection, PgPool};
 use std::net::TcpListener;
 use uuid::Uuid;
 use zero2prod::configuration::{DatabaseSettings, get_configuration};
@@ -24,9 +24,14 @@ async fn spawn_app() -> TestApp {
     let address = format!("http://127.0.0.1:{}", port);
 
     let mut configuration = get_configuration().expect("Failed to read configuration,.");
+    // Override database settings for testing with local database
+    configuration.database.host = "localhost".to_string();
+    configuration.database.port = 5432;
+    configuration.database.username = "postgres".to_string();
+    configuration.database.password = secrecy::Secret::new("password".to_string());
     configuration.database.database_name = Uuid::new_v4().to_string();
 
-    let connection_pool = configure_database(&configuration.database).await;
+    let connection_pool = configure_database(&configuration.database).await.expect("Failed to configure database");
 
     let server = run(listener, connection_pool.clone()).expect("Failed to bind address");
 
@@ -37,24 +42,23 @@ async fn spawn_app() -> TestApp {
     }
 }
 
-pub async fn configure_database(config: &DatabaseSettings) -> PgPool {
-    // Create database
-    let mut connection = PgConnection::connect(&config.connection_string_without_db())
+pub async fn configure_database(config: &DatabaseSettings) -> Result<PgPool, sqlx::Error> {
+    // For testing, connect without SSL
+    let mut connection = PgConnection::connect_with(&config.without_db().ssl_mode(sqlx::postgres::PgSslMode::Disable))
         .await
         .expect("Failed to connect to Postgres");
-    sqlx::query(&format!(r#"CREATE DATABASE "{}";"#, config.database_name))
-        .execute(&mut connection)
-        .await
-        .expect("Failed to create database.");
-    // Migrate database
-    let connection_pool = PgPool::connect(&config.connection_string())
+    connection
+        .execute(format!(r#"CREATE DATABASE "{}";"#, config.database_name).as_str())
+        .await?;
+
+    let connection_pool = PgPool::connect_with(config.with_db().ssl_mode(sqlx::postgres::PgSslMode::Disable))
         .await
         .expect("Failed to connect to Postgres.");
     sqlx::migrate!("./migrations")
         .run(&connection_pool)
         .await
         .expect("Failed to migrate the database");
-    connection_pool
+    Ok(connection_pool)
 }
 #[tokio::test]
 async fn health_check_works() {

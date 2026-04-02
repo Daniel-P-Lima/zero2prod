@@ -1,3 +1,8 @@
+use secrecy::ExposeSecret;
+use secrecy::Secret;
+use serde_aux::field_attributes::deserialize_number_from_string;
+use sqlx::postgres::{PgConnectOptions, PgSslMode};
+
 #[derive(serde::Deserialize)]
 pub struct Settings {
     pub database: DatabaseSettings,
@@ -33,6 +38,7 @@ impl std::convert::TryFrom<String> for Environment {
 
 #[derive(serde::Deserialize)]
 pub struct ApplicationSettings {
+    #[serde(deserialize_with = "deserialize_number_from_string")]
     pub port: u16,
     pub host: String,
 }
@@ -40,25 +46,26 @@ pub struct ApplicationSettings {
 #[derive(serde::Deserialize)]
 pub struct DatabaseSettings {
     pub username: String,
-    pub password: String,
+    pub password: Secret<String>,
+    #[serde(deserialize_with = "deserialize_number_from_string")]
     pub port: u16,
     pub host: String,
     pub database_name: String,
 }
 
 impl DatabaseSettings {
-    pub fn connection_string(&self) -> String {
-        format!(
-            "postgres://{}:{}@{}:{}/{}",
-            self.username, self.password, self.host, self.port, self.database_name
-        )
+// Renamed from `connection_string_without_db`
+    pub fn without_db(&self) -> PgConnectOptions {
+        PgConnectOptions::new()
+        .host(&self.host)
+        .username(&self.username)
+        .password(&self.password.expose_secret())
+        .port(self.port)
+        .ssl_mode(PgSslMode::Require)
     }
-
-    pub fn connection_string_without_db(&self) -> String {
-        format!(
-            "postgres://{}:{}@{}:{}",
-            self.username, self.password, self.host, self.port
-        )
+    
+    pub fn with_db(&self) -> PgConnectOptions {
+        self.without_db().database(&self.database_name)
     }
 }
 
@@ -66,19 +73,24 @@ pub fn get_configuration() -> Result<Settings, config::ConfigError> {
     let base_path = std::env::current_dir().expect("Failed to determine the current directory");
     let configuration_directory = base_path.join("configuration");
 
-    // Detect the running environment.
-    // Default to `local` if unspecified.
+    // Load base configuration
+    let mut builder = config::Config::builder()
+        .add_source(config::File::from(configuration_directory.join("base.yaml")).required(true));
+
+    // Load environment-specific configuration
     let environment: Environment = std::env::var("APP_ENVIRONMENT")
         .unwrap_or_else(|_| "local".into())
         .try_into()
         .expect("Failed to parse APP_ENVIRONMENT.");
 
-    let settings = config::Config::builder()
-        .add_source(config::File::from(configuration_directory.join("base")).required(true))
-        .add_source(
-            config::File::from(configuration_directory.join(environment.as_str())).required(true),
-        )
-        .build()?;
+    builder = builder.add_source(
+        config::File::from(configuration_directory.join(format!("{}.yaml", environment.as_str()))).required(true),
+    );
 
+    // Add in settings from environment variables (with a prefix of APP and '__' as separator)
+    // E.g. `APP_APPLICATION__PORT=5001 would set `Settings.application.port`
+    builder = builder.add_source(config::Environment::with_prefix("app").separator("__"));
+
+    let settings = builder.build()?;
     settings.try_deserialize()
 }
