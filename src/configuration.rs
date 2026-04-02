@@ -1,6 +1,5 @@
 use secrecy::ExposeSecret;
 use secrecy::Secret;
-use serde_aux::field_attributes::deserialize_number_from_string;
 use sqlx::postgres::{PgConnectOptions, PgSslMode};
 
 #[derive(serde::Deserialize)]
@@ -38,7 +37,6 @@ impl std::convert::TryFrom<String> for Environment {
 
 #[derive(serde::Deserialize)]
 pub struct ApplicationSettings {
-    #[serde(deserialize_with = "deserialize_number_from_string")]
     pub port: u16,
     pub host: String,
 }
@@ -47,23 +45,22 @@ pub struct ApplicationSettings {
 pub struct DatabaseSettings {
     pub username: String,
     pub password: Secret<String>,
-    #[serde(deserialize_with = "deserialize_number_from_string")]
     pub port: u16,
     pub host: String,
     pub database_name: String,
 }
 
 impl DatabaseSettings {
-// Renamed from `connection_string_without_db`
+    // Renamed from `connection_string_without_db`
     pub fn without_db(&self) -> PgConnectOptions {
         PgConnectOptions::new()
-        .host(&self.host)
-        .username(&self.username)
-        .password(&self.password.expose_secret())
-        .port(self.port)
-        .ssl_mode(PgSslMode::Require)
+            .host(&self.host)
+            .username(&self.username)
+            .password(self.password.expose_secret())
+            .port(self.port)
+            .ssl_mode(PgSslMode::Require)
     }
-    
+
     pub fn with_db(&self) -> PgConnectOptions {
         self.without_db().database(&self.database_name)
     }
@@ -84,7 +81,8 @@ pub fn get_configuration() -> Result<Settings, config::ConfigError> {
         .expect("Failed to parse APP_ENVIRONMENT.");
 
     builder = builder.add_source(
-        config::File::from(configuration_directory.join(format!("{}.yaml", environment.as_str()))).required(true),
+        config::File::from(configuration_directory.join(format!("{}.yaml", environment.as_str())))
+            .required(true),
     );
 
     // Add in settings from environment variables (with a prefix of APP and '__' as separator)

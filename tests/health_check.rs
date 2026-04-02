@@ -31,7 +31,9 @@ async fn spawn_app() -> TestApp {
     configuration.database.password = secrecy::Secret::new("password".to_string());
     configuration.database.database_name = Uuid::new_v4().to_string();
 
-    let connection_pool = configure_database(&configuration.database).await.expect("Failed to configure database");
+    let connection_pool = configure_database(&configuration.database)
+        .await
+        .expect("Failed to configure database");
 
     let server = run(listener, connection_pool.clone()).expect("Failed to bind address");
 
@@ -44,16 +46,24 @@ async fn spawn_app() -> TestApp {
 
 pub async fn configure_database(config: &DatabaseSettings) -> Result<PgPool, sqlx::Error> {
     // For testing, connect without SSL
-    let mut connection = PgConnection::connect_with(&config.without_db().ssl_mode(sqlx::postgres::PgSslMode::Disable))
-        .await
-        .expect("Failed to connect to Postgres");
+    let mut connection = PgConnection::connect_with(
+        &config
+            .without_db()
+            .ssl_mode(sqlx::postgres::PgSslMode::Disable),
+    )
+    .await
+    .expect("Failed to connect to Postgres");
     connection
         .execute(format!(r#"CREATE DATABASE "{}";"#, config.database_name).as_str())
         .await?;
 
-    let connection_pool = PgPool::connect_with(config.with_db().ssl_mode(sqlx::postgres::PgSslMode::Disable))
-        .await
-        .expect("Failed to connect to Postgres.");
+    let connection_pool = PgPool::connect_with(
+        config
+            .with_db()
+            .ssl_mode(sqlx::postgres::PgSslMode::Disable),
+    )
+    .await
+    .expect("Failed to connect to Postgres.");
     sqlx::migrate!("./migrations")
         .run(&connection_pool)
         .await
