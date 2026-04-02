@@ -1,8 +1,9 @@
 application:
     host: 0.0.0.0
 database:
-    host: ${DATABASE_HOST}
-    port: ${DATABASE_PORT}
-    username: ${DATABASE_USERNAME}
-    password: ${DATABASE_PASSWORD}
-    database_name: ${DATABASE_NAME}
+    host: ""
+    port: 5432
+    username: ""
+    password: ""
+    database_name: ""
+    url: null

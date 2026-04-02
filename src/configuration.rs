@@ -48,21 +48,29 @@ pub struct DatabaseSettings {
     pub port: u16,
     pub host: String,
     pub database_name: String,
+    pub url: Option<String>,
 }
 
 impl DatabaseSettings {
-    // Renamed from `connection_string_without_db`
     pub fn without_db(&self) -> PgConnectOptions {
-        PgConnectOptions::new()
-            .host(&self.host)
-            .username(&self.username)
-            .password(self.password.expose_secret())
-            .port(self.port)
-            .ssl_mode(PgSslMode::Require)
+        if let Some(url) = &self.url {
+            url.parse::<PgConnectOptions>().expect("Failed to parse DATABASE_URL")
+        } else {
+            PgConnectOptions::new()
+                .host(&self.host)
+                .username(&self.username)
+                .password(self.password.expose_secret())
+                .port(self.port)
+                .ssl_mode(PgSslMode::Require)
+        }
     }
 
     pub fn with_db(&self) -> PgConnectOptions {
-        self.without_db().database(&self.database_name)
+        if let Some(url) = &self.url {
+            url.parse::<PgConnectOptions>().expect("Failed to parse DATABASE_URL")
+        } else {
+            self.without_db().database(&self.database_name)
+        }
     }
 }
 
@@ -88,6 +96,10 @@ pub fn get_configuration() -> Result<Settings, config::ConfigError> {
     // Add in settings from environment variables (with a prefix of APP and '__' as separator)
     // E.g. `APP_APPLICATION__PORT=5001 would set `Settings.application.port`
     builder = builder.add_source(config::Environment::with_prefix("app").separator("__"));
+
+    // Add in settings from environment variables without prefix, using '_' as separator
+    // E.g. `DATABASE_URL` would set `database.url`
+    builder = builder.add_source(config::Environment::default().separator("_"));
 
     let settings = builder.build()?;
     settings.try_deserialize()
