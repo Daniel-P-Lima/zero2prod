@@ -3,6 +3,7 @@ use chrono::{DateTime, Utc};
 use sqlx::PgPool;
 use tracing::Instrument;
 use uuid::Uuid;
+use unicode_segmentation::UnicodeSegmentation;
 
 #[derive(serde::Deserialize)]
 pub struct FormData {
@@ -25,6 +26,9 @@ pub struct SubscribersResponse {
 }
 
 pub async fn subscribe(form: Form<FormData>, pool: Data<PgPool>) -> HttpResponse {
+    if !is_valid_name(&form.name) {
+        return HttpResponse::BadRequest().finish();
+    }
     let request_id = Uuid::new_v4();
     let request_span = tracing::info_span!("Adding a new subscriber",
         %request_id,
@@ -78,4 +82,24 @@ pub async fn get_all_subscribers(pool: Data<PgPool>) -> HttpResponse {
             HttpResponse::InternalServerError().finish()
         }
     }
+}
+pub fn is_valid_name(s: &str) -> bool {
+    // `.trim()` returns a view over the input `s` without trailing
+    // whitespace-like characters.
+    // `.is_empty` checks if the view contains any character.
+    let is_empty_or_whitespace = s.trim().is_empty();
+    // A grapheme is defined by the Unicode standard as a "user-perceived"
+    // character: `å` is a single grapheme, but it is composed of two characters
+    // (`a` and `̊`).
+    //
+    // `graphemes` returns an iterator over the graphemes in the input `s`.
+    // `true` specifies that we want to use the extended grapheme definition set,
+    // the recommended one.
+    let is_too_long = s.graphemes(true).count() > 256;
+    // Iterate over all characters in the input `s` to check if any of them matches
+    // one of the characters in the forbidden array.
+    let forbidden_characters = ['/', '(', ')', '"', '<', '>', '\\', '{', '}'];
+    let contains_forbidden_characters = s.chars().any(|g| forbidden_characters.contains(&g));
+    // Return `false` if any of our conditions have been violated
+    !(is_empty_or_whitespace || is_too_long || contains_forbidden_characters)
 }
