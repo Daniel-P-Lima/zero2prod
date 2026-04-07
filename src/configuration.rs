@@ -49,6 +49,12 @@ pub struct DatabaseSettings {
     pub host: String,
     pub database_name: String,
     pub url: Option<String>,
+    #[serde(default = "default_ssl_mode")]
+    pub ssl_mode: String,
+}
+
+fn default_ssl_mode() -> String {
+    "require".to_string()
 }
 
 impl DatabaseSettings {
@@ -56,12 +62,18 @@ impl DatabaseSettings {
         if let Some(url) = &self.url {
             url.parse::<PgConnectOptions>().expect("Failed to parse DATABASE_URL")
         } else {
+            let ssl_mode = match self.ssl_mode.as_str() {
+                "disable" => PgSslMode::Disable,
+                "prefer" => PgSslMode::Prefer,
+                _ => PgSslMode::Require,
+            };
+            
             PgConnectOptions::new()
                 .host(&self.host)
                 .username(&self.username)
                 .password(self.password.expose_secret())
                 .port(self.port)
-                .ssl_mode(PgSslMode::Require)
+                .ssl_mode(ssl_mode)
         }
     }
 
